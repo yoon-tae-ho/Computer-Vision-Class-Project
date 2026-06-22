@@ -1,0 +1,14 @@
+
+# Local datasets and experiment artifacts
+data/
+logs/
+results/*
+!results/selected_configs.json
+!results/frozen_selected_configs.json
+!results/freeze_manifest.json
+!results/report_artifact_summary.json
+*.pth
+*.pt
+*.ckpt
+*.npy
+.ipynb_checkpoints/

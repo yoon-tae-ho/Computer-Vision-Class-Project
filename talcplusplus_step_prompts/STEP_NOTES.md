@@ -243,6 +243,57 @@ Template:
 
 Append notes here after running `06_optional_boost_prompt.md`.
 
+### 2026-06-21 00:10 KST - Server Smoke Validation After Steps 1-5
+- Changed files:
+  - `Project #3.ipynb`
+  - `.codex_project3_smoke_runner.py`
+  - `report_notes.md`
+  - generated `data/`, `logs/`, and `results/` artifacts
+- What was verified:
+  - Server environment `cv-proj` has Python 3.11, NumPy, PyTorch, Torchvision, Matplotlib, nbformat, notebook, and Jupyter.
+  - Unsandboxed GPU runtime sees `NVIDIA TITAN RTX`; notebook smoke runner used `DEVICE=cuda`.
+  - `Project #3.ipynb` JSON load passed.
+  - Extracted code-cell syntax compile passed.
+  - nbformat validation passed with only `MissingIDFieldWarning`.
+  - CIFAR-100 tarball was downloaded from a Hugging Face mirror after the official Toronto URL was unusably slow; md5 matched the official value `eb9058c3a382ffc7106e4002c42a8d85`.
+- Runtime fixes made:
+  - Added `include_test=False` default to `build_datasets_for_scenario(...)` so ordinary smoke/search paths do not instantiate the CIFAR-100 test split. The guarded final evaluation path passes `include_test=True`.
+  - Set `NUM_WORKERS = 0` in `SMOKE_TEST` mode to avoid sandbox multiprocessing/socket failures; full runs still use 4 workers.
+  - Fixed `LDAMLoss` CUDA autocast dtype handling by computing LDAM logits/margins/weights in float32.
+  - Lowered smoke-only LDAM candidate LR to `0.01` to avoid NaN loss under the very short no-warmup smoke schedule. Full non-smoke grid is unchanged.
+- Smoke command:
+  - `conda run --no-capture-output -n cv-proj python -u .codex_project3_smoke_runner.py`
+- Smoke result:
+  - Completed successfully on GPU in 131.11 seconds.
+  - `run_static_smoke_verification()` passed.
+  - `run_step2_sanity_checks()` passed.
+  - `run_step3_smoke_training(download=True)` passed and wrote `logs/scenario_exp_0p1/candidates/step3_smoke/best_stage1.pth` and `best_stage2.pth`.
+  - `run_scenario_model_search("exp", 0.1)` passed.
+  - `prepare_report_artifacts()` passed.
+- Generated artifacts:
+  - `results/static_smoke_verification.json`
+  - `results/validation_candidate_summary.csv` with 4 smoke candidate rows
+  - `results/validation_pareto_summary.csv`
+  - `results/calibration_summary.csv`
+  - `results/selected_configs.json`
+  - `results/report_artifact_summary.json`
+  - `results/final_weight_artifacts.csv`
+  - `logs/scenario_exp_0p1/selected/final_model.pth`
+  - `logs/scenario_exp_0p1/selected/selected_config.json`
+  - selected diagnostic figures/placeholders under `logs/scenario_exp_0p1/selected/figures/`
+- Test-split guard:
+  - `RUN_FINAL_TEST` remained `False`.
+  - No `results/*test*` files were generated.
+  - `results/report_artifact_summary.json` reports `final_test_rows: 0`.
+- Remaining risks:
+  - This was smoke-only validation for `scenario_exp_0p1`; no full four-scenario training has been run yet.
+  - Some report figures are placeholders because final test/per-class selected inputs are not available in smoke mode.
+  - Extra diagnostic LDAM check directories from debugging remain under `logs/scenario_exp_0p1/candidates/`; they are not selected configs.
+- Final handoff:
+  - Core Steps 1-5 smoke path is stable on the server.
+  - Step 6 optional boost was not run.
+  - Full run should wait for explicit approval.
+
 Template:
 
 ```markdown
@@ -253,3 +304,149 @@ Template:
 - Issues/blockers:
 - Final handoff:
 ```
+
+### 2026-06-21 00:18 KST - Step 6
+- Changed files:
+  - `Project #3.ipynb`
+  - `talcplusplus_step_prompts/STEP_NOTES.md`
+  - `report_notes.md` was regenerated as a side effect of loading notebook definitions for static verification.
+- Optional features added/connected:
+  - Connected existing `CifarResNet56` as a non-smoke optional model candidate only for the hardest `exp/0.01` scenario; smoke mode remains `resnet32` only.
+  - Kept existing Stage 1 EMA implementation without reimplementation; candidate configs still disable EMA in smoke and enable it only outside smoke.
+  - Connected existing `cRT_no_reset_MaxNorm` as a non-smoke Stage 2 validation candidate with `maxnorm_radius=2.0`; smoke Stage 2 grid remains `none` and `cRT_no_reset`.
+  - Added optional BN alignment helpers:
+    - default `bn_align_mode="none"`;
+    - non-smoke `recompute_balanced_bn` candidate only for `cRT_no_reset`;
+    - BN stats are recomputed with no gradients on the balanced training loader after ordinary cRT;
+    - aligned stats are kept only if validation selection score improves, otherwise the pre-alignment model state is restored.
+  - BCL, WRN, RIDE-Lite, and large Mixup/CutMix tuning were intentionally not added.
+- Verification:
+  - `python3` JSON load of `Project #3.ipynb`: passed.
+  - Extracted code-cell syntax compile with `compile(...)`: passed.
+  - `conda run --no-capture-output -n cv-proj python - <<'PY' ... nbformat.validate(...) ... PY`: passed with the existing `MissingIDFieldWarning`.
+  - Static source checks confirmed `RUN_FINAL_TEST = False`, `BATCH_SIZE = 128`, hard-scenario ResNet56 routing, optional BN alignment, and MaxNorm candidate wiring.
+  - Grid-only runtime check confirmed smoke candidates stay `resnet32`/2 Stage 2 configs, while non-smoke optional routing adds `resnet56` only for `exp/0.01` plus `recompute_balanced_bn` and `cRT_no_reset_MaxNorm` candidates.
+  - `conda run --no-capture-output -n cv-proj python -c "import torch; ..."` showed `cuda_available False`, so the long smoke runner was not forced on CPU.
+  - Loaded notebook definitions in `cv-proj` and ran `run_static_smoke_verification()` on CPU: passed, including new optional-boost checks.
+  - `find results -maxdepth 1 -iname '*test*' -print`: no output.
+- Issues/blockers:
+  - GPU is not visible inside the current sandbox, so `.codex_project3_smoke_runner.py` was not rerun.
+  - Optional Step 6 candidates have not been trained or selected in a full run.
+  - Existing `results/selected_configs.json` remains smoke output and must not be treated as a final frozen config.
+- Final handoff:
+  - When GPU is visible, rerun smoke with `conda run --no-capture-output -n cv-proj python -u .codex_project3_smoke_runner.py`.
+  - Full four-scenario training and any final frozen evaluation require explicit user approval.
+  - Keep `RUN_FINAL_TEST=False` until validation-selected configs are deliberately frozen.
+
+### 2026-06-21 01:10 KST - Step 6 Recovery After IDE Save
+- Changed files:
+  - `Project #3.ipynb`
+  - `talcplusplus_step_prompts/STEP_NOTES.md`
+  - `report_notes.md` was regenerated as a side effect of loading notebook definitions for verification.
+  - `results/static_smoke_verification.json` was refreshed by `run_static_smoke_verification()`.
+- What was restored/cleaned:
+  - Restored Step 6 optional wiring that had been overwritten by an older IDE notebook buffer:
+    - `ENABLE_OPTIONAL_STEP6_BOOSTS`;
+    - `BN_ALIGN_CANDIDATES`;
+    - `model_candidates_for_scenario(...)`;
+    - optional `recompute_balanced_bn` BN alignment helper and candidate wiring;
+    - non-smoke `cRT_no_reset_MaxNorm` Stage 2 candidate;
+    - selected-config/result fields for `bn_alignment` and `bn_align_selected_mode`.
+  - Restored smoke-safe `NUM_WORKERS = 0 if SMOKE_TEST else 4`.
+  - Cleared the stale first-cell `ModuleNotFoundError: No module named 'torch'` output.
+  - Updated notebook kernelspec metadata to `Python (cv-proj)` / `cv-proj`.
+- Verification:
+  - `python3` JSON load: passed.
+  - Extracted code-cell syntax compile: passed.
+  - Confirmed first code cell has zero saved outputs.
+  - Confirmed `RUN_FINAL_TEST = False` and no `RUN_FINAL_TEST = True` source assignment.
+  - `conda run --no-capture-output -n cv-proj python - <<'PY' ... nbformat.validate(...) ... PY`: passed with the existing `MissingIDFieldWarning`.
+  - Loaded notebook definitions in `cv-proj` without training and ran `run_static_smoke_verification()`: passed.
+  - Grid-only runtime check confirmed non-smoke `exp/0.01` model candidates are `["resnet32", "resnet56"]`, other scenarios stay `["resnet32"]`, and Stage 2 candidates include `recompute_balanced_bn` and `cRT_no_reset_MaxNorm`.
+  - `find results -maxdepth 1 -iname '*test*' -print`: no output.
+- Issues/blockers:
+  - No smoke or full training was rerun in this recovery step.
+  - Current `results/selected_configs.json` remains smoke output and is not a final frozen config.
+- Final handoff:
+  - Use the `Python (cv-proj)` kernel before running notebook cells.
+  - Keep `RUN_FINAL_TEST=False`.
+  - For the next real experiment, run validation-only full search explicitly with `run_all_scenario_model_searches()` and then `prepare_report_artifacts()`.
+
+### 2026-06-21 01:13 KST - Run All Entrypoint
+- Changed files:
+  - `Project #3.ipynb`
+  - `talcplusplus_step_prompts/STEP_NOTES.md`
+- What was implemented:
+  - Added `RUN_PIPELINE_ON_RUN_ALL = True` and `RUN_SEED_CONFIRMATION_ON_RUN_ALL = False` config flags.
+  - Replaced the final report-scaffold-only behavior with a notebook-only Run All entrypoint:
+    - asserts `RUN_FINAL_TEST is False`;
+    - runs `run_static_smoke_verification()`;
+    - runs `run_all_scenario_model_searches()`;
+    - optionally runs seed confirmation only if explicitly enabled;
+    - runs `prepare_report_artifacts()`.
+  - Added `running_inside_notebook()` so extracted-code smoke runners and command-line validation do not accidentally start full training.
+- Verification:
+  - Extracted code-cell syntax compile: passed.
+  - Source checks confirmed the Run All entrypoint and `RUN_FINAL_TEST=False` guard are present.
+  - Executed extracted notebook code in `cv-proj` outside a notebook: it printed `Notebook Run All entrypoint skipped outside an interactive notebook kernel.` and did not start training.
+  - `nbformat.validate(...)`: passed with the existing `MissingIDFieldWarning`.
+  - `find results -maxdepth 1 -iname '*test*' -print`: no output.
+- Final handoff:
+  - In the IDE, select the `Python (cv-proj)` kernel.
+  - Press `Run All` to start validation-only full search from the notebook button.
+  - Stop immediately if the first config cell prints `Device: cpu`; full search should run on CUDA.
+  - Keep `RUN_FINAL_TEST=False`; final test is still not part of Run All.
+
+### 2026-06-21 11:54 KST - LDAM AMP Dtype Fix
+- Changed files:
+  - `Project #3.ipynb`
+  - `talcplusplus_step_prompts/STEP_NOTES.md`
+- Issue:
+  - Full Run All failed during the `LDAM_DRW` Stage 1 candidate with `RuntimeError: scatter(): Expected self.dtype to be equal to src.dtype`.
+  - Root cause was CUDA autocast producing half-precision logits while LDAM margins/weights stayed float32, so `scatter_` received mixed dtypes.
+- Fix:
+  - Updated `LDAMLoss.forward(...)` to cast logits to float32 internally, compute margins/target logits/adjusted logits/weights in the same float32 dtype, and return float32 cross entropy.
+  - Cleared saved notebook outputs so the failed traceback is not preserved in the notebook file.
+- Verification:
+  - `python3` JSON load and extracted code-cell syntax compile: passed.
+  - Minimal LDAM smoke in `cv-proj` with half-precision logits: passed and returned a float32 loss.
+  - Confirmed all saved code-cell outputs are cleared.
+  - `nbformat.validate(...)`: passed with the existing `MissingIDFieldWarning`.
+  - `find results -maxdepth 1 -iname '*test*' -print`: no output.
+- Final handoff:
+  - Restart the notebook kernel before rerunning `Run All` so the fixed `LDAMLoss` class is redefined.
+  - Keep `RUN_FINAL_TEST=False`.
+
+### 2026-06-22 KST - Frozen Final-Test Run All Prep
+- Changed files:
+  - `Project #3.ipynb`
+  - `talcplusplus_step_prompts/STEP_NOTES.md`
+  - `results/frozen_selected_configs.json`
+  - `results/freeze_manifest.json`
+  - `FROZEN_SELECTED_CONFIGS_DO_NOT_TUNE.txt`
+- What was prepared:
+  - Snapshotted the validation-selected configs from `results/selected_configs.json` into `results/frozen_selected_configs.json`.
+  - Added a mode-aware notebook Run All entrypoint:
+    - `RUN_FINAL_TEST = False` remains the notebook-start default.
+    - `RUN_ALL_MODE = "final_test"` makes the final Run All cell execute frozen final evaluation instead of rerunning validation search.
+    - Final evaluation reads `results/frozen_selected_configs.json`.
+    - `ALLOW_FINAL_TEST_RERUN = False` prevents accidental repeat final-test execution if `results/final_test_summary.csv` already exists.
+  - Added notebook helpers to freeze selected configs, load frozen configs, and run final test from the frozen snapshot.
+- Verification:
+  - `python` JSON load and extracted code-cell syntax compile: passed.
+  - `nbformat.validate(...)`: passed with the existing `MissingIDFieldWarning`.
+  - Confirmed `RUN_FINAL_TEST = False` is still the initial config.
+  - Confirmed `RUN_ALL_MODE = "final_test"` is set for the next notebook Run All.
+  - Confirmed `results/frozen_selected_configs.json` contains four selected scenario configs.
+  - `find results -maxdepth 1 -iname '*test*' -print`: no output.
+  - `find logs -path '*selected*' \( -iname '*test*' -o -iname 'confusion_test.npy' -o -iname 'per_class_test.csv' \) -print`: no output.
+- Not run:
+  - Final frozen test evaluation was not completed by Codex.
+  - A direct Codex-side attempt was interrupted before writing final-test artifacts, per user request to run final test from the notebook UI.
+  - No validation retraining or seed confirmation was rerun.
+- Remaining risk:
+  - Pressing `Run All` with `RUN_ALL_MODE = "final_test"` will use the test split. Do not change configs after that point.
+  - If the first config cell prints `Device: cpu`, stop and switch to a CUDA-visible kernel before final test.
+- Final handoff:
+  - Use VS Code's `Run All` on `Project #3.ipynb` with the `Python (cv-proj)` kernel.
+  - The run should skip validation search and execute the frozen final test from `results/frozen_selected_configs.json`.

@@ -1,0 +1,5 @@
+{
+  "frozen_configs": "results/frozen_selected_configs.json",
+  "note": "Frozen after validation-only scenario search. Do not tune after final test evaluation.",
+  "source": "results/selected_configs.json"
+}

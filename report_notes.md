@@ -11,9 +11,9 @@
 
 TALC++ is a three-stage long-tail recognition method.
 
-1. Tail-aware representation learning with CE strong augmentation, LDAM-DRW, Balanced Softmax, or logit-adjusted CE.
-2. BN-safe decoupled classifier adaptation by freezing the backbone, keeping frozen BatchNorm layers in eval mode, and retraining only the classifier with class-balanced exposure.
-3. Validation-gated group-wise calibration with identity/no-calibration included in every grid.
+1. Tail-aware representation learning: train a CIFAR backbone with CE strong augmentation, LDAM-DRW, Balanced Softmax, or logit-adjusted CE.
+2. BN-safe decoupled classifier adaptation: freeze the learned backbone, keep frozen BatchNorm layers in eval mode, and retrain only the classifier with class-balanced exposure.
+3. Validation-gated group-wise calibration: tune group temperatures, post-hoc logit adjustment, and tau-normalization on validation only. The identity setting is always included, so calibration is used only when it improves validation selection score.
 
 ## Experimental Setup
 
@@ -26,17 +26,32 @@ TALC++ is a three-stage long-tail recognition method.
 
 ## Quantitative Results
 
-Fill this section after running the experiment pipeline and `prepare_report_artifacts()`.
+Final test summary file: `results/final_test_summary.csv`.
 
-Expected files:
+_No rows available yet._
 
-- `results/final_test_summary.csv`
-- `results/validation_candidate_summary.csv`
-- `results/validation_pareto_summary.csv`
-- `results/seed_confirm_summary.csv`
-- `results/ablation_summary.csv`
-- `results/per_class_all_scenarios.csv`
-- `results/calibration_summary.csv`
+Ablation summary file: `results/ablation_summary.csv`.
+
+| scenario | method | overall_acc | macro_acc | tail_acc | delta_over_CE | delta_tail_over_CE |
+| --- | --- | --- | --- | --- | --- | --- |
+| scenario_exp_0p1 | CE_StrongAug | 65.71428571428571 | 58.83373673859627 | 45.46536796536797 | 0.0 | 0.0 |
+| scenario_exp_0p1 | LDAM_DRW | 2.5510204081632653 | 1.0 | 0.0 | -63.16326530612244 | -45.46536796536797 |
+| scenario_exp_0p1 | BalancedSoftmax | 63.52040816326531 | 59.66933190165746 | 52.142857142857146 | -2.1938775510203996 | 6.6774891774891785 |
+| scenario_exp_0p1 | BalancedSoftmax | 60.96938775510204 | 59.65168608831531 | 63.60149110149111 | -4.7448979591836675 | 18.136123136123146 |
+| scenario_exp_0p1 | TALC++ | 62.80612244897959 | 58.678756144795834 | 56.5981240981241 | -2.908163265306115 | 11.132756132756136 |
+| scenario_exp_0p1 | TALC++ | 62.80612244897959 | 58.678756144795834 | 56.5981240981241 | -2.908163265306115 | 11.132756132756136 |
+| scenario_exp_0p1 | TALC++ | 62.704081632653065 | 58.57228722654015 | 55.588023088023085 | -3.0102040816326436 | 10.122655122655118 |
+| scenario_exp_0p1 | TALC++ | 62.80612244897959 | 59.10531143107449 | 56.15680615680616 | -2.908163265306115 | 10.691438191438195 |
+
+Seed confirmation file: `results/seed_confirm_summary.csv`.
+
+- Rows available: 0
+- Final seed should be selected by validation score only, never test score.
+
+Calibration summary file: `results/calibration_summary.csv`.
+
+- Rows available: 69120
+- Identity/no-calibration is included in every calibration grid.
 
 ## Qualitative Results
 
@@ -49,17 +64,32 @@ Expected figure files under each `logs/scenario_<type>_<factor>/selected/figures
 - `feature_pca.png`
 - `calibration_grid_heatmap.png`
 
+If a figure cannot be generated in the current environment, the notebook writes a `.txt` placeholder next to the target image path.
+
 ## Analysis
 
-- Compare CE/CE strong augmentation against LDAM-DRW and Balanced Softmax.
-- Compare Stage 1 only against `TALC++_no_calib`.
-- Compare `TALC++_no_calib` against `TALC++`.
-- Inspect macro and tail accuracy together with overall accuracy.
-- Report validation coverage, especially for `exp/0.01`.
+- Compare CE/CE strong augmentation against LDAM-DRW and Balanced Softmax to identify the strongest representation learner.
+- Compare Stage 1 only against `TALC++_no_calib` to isolate BN-safe classifier adaptation.
+- Compare `TALC++_no_calib` against `TALC++` to isolate validation-gated calibration.
+- Inspect macro and tail accuracy together with overall accuracy to avoid over-correcting toward tail classes at a large overall cost.
+- Use validation coverage when interpreting the hardest `exp/0.01` scenario because tail validation estimates can be noisy.
 
 ## Concluding Remarks
 
-TALC++ is designed to improve long-tail robustness while keeping computation controlled. Its main safety mechanisms are validation-only model selection, BN-safe classifier adaptation, and validation-gated calibration.
+TALC++ is designed to improve long-tail robustness while keeping computation controlled. Its main safety mechanisms are validation-only model selection, BN-safe classifier adaptation, and calibration that is applied only when validation improves.
+
+## Artifact Checklist
+
+{
+  "final_test_summary": false,
+  "validation_candidate_summary": true,
+  "validation_pareto_summary": true,
+  "seed_confirm_summary": true,
+  "ablation_summary": true,
+  "per_class_all_scenarios": true,
+  "calibration_summary": true,
+  "selected_configs": true
+}
 
 ## References
 
