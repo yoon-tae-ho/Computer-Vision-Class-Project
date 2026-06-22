@@ -28,20 +28,21 @@ TALC++ is a three-stage long-tail recognition method.
 
 Final test summary file: `results/final_test_summary.csv`.
 
-_No rows available yet._
+| method | model | imb_type | imb_factor | overall_acc | macro_acc | tail_acc | FLOPs_M |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| TALC++ | resnet32 | exp | 0.01 | 44.4 | 44.4 | 31.515151515151516 | 138.260992 |
+| TALC++ | resnet32 | exp | 0.1 | 60.37 | 60.37 | 63.45454545454545 | 138.260992 |
+| TALC++ | resnet32 | step | 0.01 | 46.05 | 46.05 | 23.12121212121212 | 138.260992 |
+| TALC++ | resnet32 | step | 0.1 | 61.77 | 61.77 | 52.03030303030303 | 138.260992 |
 
 Ablation summary file: `results/ablation_summary.csv`.
 
 | scenario | method | overall_acc | macro_acc | tail_acc | delta_over_CE | delta_tail_over_CE |
 | --- | --- | --- | --- | --- | --- | --- |
-| scenario_exp_0p1 | CE_StrongAug | 65.71428571428571 | 58.83373673859627 | 45.46536796536797 | 0.0 | 0.0 |
-| scenario_exp_0p1 | LDAM_DRW | 2.5510204081632653 | 1.0 | 0.0 | -63.16326530612244 | -45.46536796536797 |
-| scenario_exp_0p1 | BalancedSoftmax | 63.52040816326531 | 59.66933190165746 | 52.142857142857146 | -2.1938775510203996 | 6.6774891774891785 |
-| scenario_exp_0p1 | BalancedSoftmax | 60.96938775510204 | 59.65168608831531 | 63.60149110149111 | -4.7448979591836675 | 18.136123136123146 |
-| scenario_exp_0p1 | TALC++ | 62.80612244897959 | 58.678756144795834 | 56.5981240981241 | -2.908163265306115 | 11.132756132756136 |
-| scenario_exp_0p1 | TALC++ | 62.80612244897959 | 58.678756144795834 | 56.5981240981241 | -2.908163265306115 | 11.132756132756136 |
-| scenario_exp_0p1 | TALC++ | 62.704081632653065 | 58.57228722654015 | 55.588023088023085 | -3.0102040816326436 | 10.122655122655118 |
-| scenario_exp_0p1 | TALC++ | 62.80612244897959 | 59.10531143107449 | 56.15680615680616 | -2.908163265306115 | 10.691438191438195 |
+| scenario_exp_0p01 | TALC++ | 44.4 | 44.4 | 31.515151515151516 |  |  |
+| scenario_exp_0p1 | TALC++ | 60.37 | 60.37 | 63.45454545454545 |  |  |
+| scenario_step_0p01 | TALC++ | 46.05 | 46.05 | 23.12121212121212 |  |  |
+| scenario_step_0p1 | TALC++ | 61.77 | 61.77 | 52.03030303030303 | 0.0 | 0.0 |
 
 Seed confirmation file: `results/seed_confirm_summary.csv`.
 
@@ -81,7 +82,7 @@ TALC++ is designed to improve long-tail robustness while keeping computation con
 ## Artifact Checklist
 
 {
-  "final_test_summary": false,
+  "final_test_summary": true,
   "validation_candidate_summary": true,
   "validation_pareto_summary": true,
   "seed_confirm_summary": true,
